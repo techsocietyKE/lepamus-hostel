@@ -1,0 +1,279 @@
+@import 'tailwindcss';
+
+/*
+  Lepamus Residency — visual direction
+  ------------------------------------
+  The thing being replaced is a ruled ledger. So the interface is a register:
+  cool whitewash rather than nostalgic cream, ink that is genuinely dark, and
+  one accent taken from the enamel paint on hostel doors and window frames.
+  Numbers are the content, so every figure is set in a mono face with tabular
+  figures and columns of them line up down the page.
+*/
+
+@theme {
+  --color-wall: #f4f5f3;
+  --color-paper: #ffffff;
+  --color-ink: #14171a;
+  --color-ink-soft: #5a6169;
+  --color-ink-faint: #8b939b;
+  --color-rule: #e2e5e2;
+  --color-rule-strong: #c9cdc9;
+
+  --color-enamel: #1b4d8f;
+  --color-enamel-dark: #143a6c;
+  --color-enamel-tint: #eaf0f8;
+
+  --color-paid: #1f6f4a;
+  --color-paid-tint: #e8f2ec;
+  --color-part: #a9690f;
+  --color-part-tint: #fbf0df;
+  --color-unpaid: #a32c2c;
+  --color-unpaid-tint: #f9e9e9;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --font-cond: var(--font-plex-cond), var(--font-plex-sans), sans-serif;
+
+  --radius-sm: 3px;
+  --radius-md: 5px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-wall);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* Figures line up in columns. Non-negotiable in a ledger. */
+  .num,
+  input[inputmode='numeric'],
+  input[type='number'] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-enamel);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-enamel);
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* Small uppercase header, like the printed heading on a form column. */
+  .eyebrow {
+    font-family: var(--font-cond);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  .card {
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    padding: 0.5rem 0.9rem;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--color-enamel);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-enamel-dark);
+  }
+
+  .btn-quiet {
+    background: var(--color-paper);
+    border-color: var(--color-rule-strong);
+    color: var(--color-ink);
+  }
+  .btn-quiet:hover:not(:disabled) {
+    background: var(--color-wall);
+  }
+
+  .btn-danger {
+    background: var(--color-paper);
+    border-color: var(--color-rule-strong);
+    color: var(--color-unpaid);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-unpaid-tint);
+    border-color: var(--color-unpaid);
+  }
+
+  .field {
+    display: block;
+    width: 100%;
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule-strong);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.65rem;
+    font-size: 15px;
+    color: var(--color-ink);
+  }
+  .field::placeholder {
+    color: var(--color-ink-faint);
+  }
+  .field[aria-invalid='true'] {
+    border-color: var(--color-unpaid);
+    background: var(--color-unpaid-tint);
+  }
+
+  .label {
+    display: block;
+    font-family: var(--font-cond);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+    margin-bottom: 0.3rem;
+  }
+
+  .hint {
+    font-size: 12.5px;
+    color: var(--color-ink-faint);
+    margin-top: 0.3rem;
+  }
+
+  .err {
+    font-size: 12.5px;
+    color: var(--color-unpaid);
+    margin-top: 0.3rem;
+  }
+
+  /* Ruled table — the digitised sheet. */
+  .ledger {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .ledger th {
+    font-family: var(--font-cond);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+    text-align: left;
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--color-rule-strong);
+    white-space: nowrap;
+  }
+  .ledger td {
+    padding: 0.6rem 0.7rem;
+    border-bottom: 1px solid var(--color-rule);
+    vertical-align: middle;
+  }
+  .ledger tbody tr:hover {
+    background: var(--color-wall);
+  }
+  .ledger .right {
+    text-align: right;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.12rem 0.5rem;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .pill-vacant { background: var(--color-enamel-tint); color: var(--color-enamel-dark); }
+  .pill-part   { background: var(--color-part-tint);   color: var(--color-part); }
+  .pill-full   { background: var(--color-wall);        color: var(--color-ink-soft); }
+  .pill-out    { background: var(--color-unpaid-tint); color: var(--color-unpaid); }
+  .pill-paid   { background: var(--color-paid-tint);   color: var(--color-paid); }
+}
+
+/**
+ * Printing is how a statement or a sheet becomes a PDF. Staff will not trust
+ * the screen for a while yet, so a printed copy has to be readable on its own:
+ * navigation, buttons and anything only useful on screen come off the page.
+ */
+@media print {
+  aside,
+  nav,
+  form,
+  .no-print,
+  .btn {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  .card {
+    border: 1px solid #999;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .ledger {
+    font-size: 11pt;
+  }
+
+  .ledger th,
+  .ledger td {
+    border-bottom: 1px solid #ccc;
+  }
+
+  .ledger tr {
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

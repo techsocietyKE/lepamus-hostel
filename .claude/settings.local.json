@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npx prisma generate)",
+      "PowerShell(Remove-Item -Recurse -Force .next -Confirm:$false)",
+      "PowerShell(if \\($?\\) { \"removed .next\" })",
+      "PowerShell(if \\(Test-Path .env\\) { \"ENV EXISTS\"; \\(Get-Content .env | ForEach-Object { \\($_ -split '='\\)[0] }\\) } else { \"NO .env\" })",
+      "Read(//c/Users/Gafild/Downloads/**)",
+      "Bash(pandoc -t markdown hostel-system-documentation-v4.docx -o __TRACKED_VAR__/../scratchpad/doc-v4.md)",
+      "Read(//c/Users/Gafild/AppData/Local/Temp/claude/C--Users-Gafild-Desktop-lepamus-hostel-lepamus/edaed481-ae18-481d-aa10-3a3514ecc05d/scratchpad//**)",
+      "Bash(python -c \"import docx; print\\('python-docx ok'\\)\")",
+      "Bash(mkdir -p /c/Users/Gafild/AppData/Local/Temp/claude/C--Users-Gafild-Desktop-lepamus-hostel-lepamus/edaed481-ae18-481d-aa10-3a3514ecc05d/scratchpad/docx)",
+      "Bash(unzip -o -q /c/Users/Gafild/Downloads/hostel-system-documentation-v4.docx -d /c/Users/Gafild/AppData/Local/Temp/claude/C--Users-Gafild-Desktop-lepamus-hostel-lepamus/edaed481-ae18-481d-aa10-3a3514ecc05d/scratchpad/docx)",
+      "PowerShell($e = Get-Content .env; foreach \\($k in @\\('DATABASE_URL','DIRECT_URL','AUTH_SECRET'\\)\\) { $l = $e | Where-Object { $_ -match \"^$k=\" } | Select-Object -First 1; if \\(-not $l\\) { \"$k : MISSING\" } else { $v = $l -replace \"^$k=\",''; $host_part = if \\($v -match '@\\([^/?]+\\)'\\) { $matches[1] } else { 'unparsed' }; $ph = if \\($v -match 'user:pass|replace-me'\\) { 'PLACEHOLDER' } else { 'set' }; \"$k : $ph -> $host_part\" } })",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('base64'\\)\\)\")",
+      "PowerShell(npm run db:push)",
+      "PowerShell(npm run db:seed)",
+      "Bash(SP=\"/c/Users/Gafild/AppData/Local/Temp/claude/C--Users-Gafild-Desktop-lepamus-hostel-lepamus/edaed481-ae18-481d-aa10-3a3514ecc05d/scratchpad\" *)",
+      "PowerShell(npm run test:money)",
+      "PowerShell(npm run build)",
+      "Bash(node -e \"console.log\\(Buffer.from\\('W3sibWFzdGVyIjp0cnVlLCJleHRlbnNpb25JZCI6ImFsbWFsZ2JwbWNmcGRhb3BpbWJkY2hkbGlt','base64'\\).toString\\('utf8'\\)\\)\")",
+      "PowerShell(npm run test:billing)",
+      "PowerShell(npx next build)",
+      "PowerShell(Get-Process node -ErrorAction SilentlyContinue | Select-Object Id,StartTime,@{n='CPU\\(s\\)';e={[math]::Round\\($_.CPU,1\\)}} | Format-Table -AutoSize; \"--- port 3000 ---\"; Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort,OwningProcess)",
+      "PowerShell(node -e \"const{PrismaClient}=require\\('@prisma/client'\\);const f=Object.keys\\(require\\('@prisma/client'\\).Prisma.StudentScalarFieldEnum\\);console.log\\('openingBalance present:',f.includes\\('openingBalance'\\)\\)\")",
+      "PowerShell(npm test)",
+      "PowerShell(if \\($?\\) { \"cleared .next\" })",
+      "PowerShell(node --env-file=.env \"C:\\\\Users\\\\Gafild\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Gafild-Desktop-lepamus-hostel-lepamus\\\\edaed481-ae18-481d-aa10-3a3514ecc05d\\\\scratchpad\\\\seed-claims.cjs\")",
+      "PowerShell(Remove-Item src\\\\app\\\\admin\\\\payments\\\\TillPaymentForm.js -Confirm:$false)",
+      "PowerShell(if \\($?\\) { \"removed TillPaymentForm.js\" })",
+      "PowerShell(node --env-file=.env \"C:\\\\Users\\\\Gafild\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Gafild-Desktop-lepamus-hostel-lepamus\\\\edaed481-ae18-481d-aa10-3a3514ecc05d\\\\scratchpad\\\\remove-claims.cjs\")",
+      "PowerShell(Remove-Item src\\\\app\\\\page.js -Confirm:$false)",
+      "PowerShell(if \\($?\\) { \"removed the old root redirect\" })",
+      "PowerShell(node --env-file=.env \"C:\\\\Users\\\\Gafild\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-Gafild-Desktop-lepamus-hostel-lepamus\\\\edaed481-ae18-481d-aa10-3a3514ecc05d\\\\scratchpad\\\\remove-test-student.cjs\")"
+    ]
+  }
+}

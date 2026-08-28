@@ -1,0 +1,594 @@
+// Lepamus Residency — hostel & rentals management
+// All money is stored as INTEGER CENTS. Never floats. See src/lib/money.js.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- enums ----------
+
+enum Role {
+  SUPER_ADMIN
+  CLERK
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+/// Rooms may be restricted to one gender, or open to anyone.
+enum RoomGender {
+  MALE
+  FEMALE
+  ANY
+}
+
+enum RoomStatus {
+  ACTIVE
+  MAINTENANCE
+  INACTIVE
+}
+
+enum StudentStatus {
+  ACTIVE
+  NOTICE_GIVEN
+  VACATED
+  BLACKLISTED
+}
+
+enum OccupancyStatus {
+  ACTIVE
+  ENDED
+}
+
+enum EndReason {
+  VACATED
+  TRANSFERRED
+  REMOVED
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  OVERDUE
+  WAIVED
+}
+
+enum ReliefKind {
+  PLACEMENT
+  NEGOTIATED
+  HARDSHIP
+  OTHER
+}
+
+enum ChargeType {
+  DAMAGE
+  KEY
+  CLEANING
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  MPESA_TILL
+  BANK
+}
+
+/// SUBMITTED is a claim and never moves money. Only APPROVED does.
+enum PaymentStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVERSED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WAITLISTED
+  CONVERTED
+  EXPIRED
+}
+
+enum VacateStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum DepositSettlement {
+  NOT_APPLICABLE
+  REFUNDED_FULL
+  REFUNDED_PARTIAL
+  FORFEITED
+}
+
+// ---------- staff ----------
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String
+  role         Role     @default(CLERK)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  roomsCreated      Room[]         @relation("RoomCreatedBy")
+  occupanciesOpened Occupancy[]    @relation("OccupancyCreatedBy")
+  auditEntries      AuditLog[]
+  paymentsRecorded  Payment[]      @relation("PaymentRecordedBy")
+  paymentsDecided   Payment[]      @relation("PaymentDecidedBy")
+  reliefsApproved   RentRelief[]   @relation("ReliefApprovedBy")
+
+  @@index([isActive])
+}
+
+// ---------- structure ----------
+
+/// A block is organisational only. It carries no gender — gender lives on the room.
+model Block {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  rooms Room[]
+
+  @@index([isActive, sortOrder])
+}
+
+/// Derived from capacity (1 = Single, 2 = 2 Sharing, ...). Holds the public copy and photos.
+model RoomCategory {
+  id                String   @id @default(uuid())
+  name              String   @unique
+  capacity          Int      @unique
+  description       String?
+  images            String[] @default([])
+  maxShownPublicly  Int      @default(5)
+  isPublic          Boolean  @default(true)
+
+  rooms    Room[]
+  bookings Booking[]
+}
+
+model Room {
+  id          String     @id @default(uuid())
+  code        String     @unique
+  blockId     String
+  categoryId  String
+  capacity    Int
+  gender      RoomGender @default(ANY)
+  /// Monthly price of the WHOLE room, in cents. Divided among actual occupants.
+  monthlyRent Int
+  description String?
+  images      String[]   @default([])
+  status      RoomStatus @default(ACTIVE)
+  notes       String?
+  createdById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  block       Block        @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  category    RoomCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy   User?        @relation("RoomCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  occupancies Occupancy[]
+  invoices    Invoice[]
+  bookings    Booking[]
+
+  @@index([blockId, code])
+  @@index([status, gender])
+}
+
+// ---------- students ----------
+
+model Student {
+  id             String        @id @default(uuid())
+  fullName       String
+  /// Normalised to 2547XXXXXXXX. Login identifier and the thread back to a Till payment.
+  phone          String        @unique
+  email          String?       @unique
+  gender         Gender
+  idNumber       String?
+  institution    String?
+  course         String?
+  nextOfKinName  String?
+  nextOfKinPhone String?
+  passwordHash   String?
+  mustChangePassword Boolean   @default(true)
+  /// What they owed on the last paper sheet, entered once when moving off paper.
+  /// Used as the opening balance of their FIRST invoice only; every month after
+  /// that carries forward from the previous invoice's closing balance.
+  openingBalance Int           @default(0)
+  status         StudentStatus @default(ACTIVE)
+  admittedAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  occupancies      Occupancy[]
+  invoices         Invoice[]
+  payments         Payment[]
+  vacateRequests   VacateRequest[]
+  ruleAcks         RuleAcknowledgement[]
+  bookings         Booking[]
+  reliefs          RentRelief[]
+
+  @@index([status])
+  @@index([fullName])
+}
+
+/// The pivot of the system. Room fullness, rent shares and roommate lists all derive from this.
+model Occupancy {
+  id          String          @id @default(uuid())
+  studentId   String
+  roomId      String
+  startDate   DateTime        @db.Date
+  endDate     DateTime?       @db.Date
+  status      OccupancyStatus @default(ACTIVE)
+  endReason   EndReason?
+  createdById String?
+  createdAt   DateTime        @default(now())
+
+  student   Student         @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  room      Room            @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  createdBy User?           @relation("OccupancyCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  vacateRequests VacateRequest[]
+
+  @@index([roomId, status])
+  @@index([studentId, status])
+}
+
+// ---------- billing ----------
+
+model BillingPeriod {
+  id          String       @id @default(uuid())
+  year        Int
+  month       Int
+  label       String
+  status      PeriodStatus @default(OPEN)
+  dueDate     DateTime?    @db.Date
+  generatedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  invoices       Invoice[]
+  rentalInvoices RentalInvoice[]
+
+  @@unique([year, month])
+}
+
+model Invoice {
+  id                     String        @id @default(uuid())
+  invoiceNo              String        @unique
+  studentId              String
+  roomId                 String
+  periodId               String
+  /// Snapshots taken at generation. Never recalculated afterwards.
+  roomRentAtBilling      Int
+  occupantCountAtBilling Int
+  rentShare              Int
+  chargesTotal           Int           @default(0)
+  discount               Int           @default(0)
+  discountReason         String?
+  openingBalance         Int           @default(0)
+  totalPayable           Int
+  amountPaid             Int           @default(0)
+  closingBalance         Int
+  dueDate                DateTime      @db.Date
+  graceEndsOn            DateTime      @db.Date
+  status                 InvoiceStatus @default(UNPAID)
+  overdueAlertedAt       DateTime?
+  adjustedById           String?
+  adjustmentNote         String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  student     Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  room        Room                @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  period      BillingPeriod       @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  charges     OtherCharge[]
+  allocations PaymentAllocation[]
+
+  /// One invoice per student per month — makes generation safe to re-run.
+  @@unique([studentId, periodId])
+  @@index([periodId, status])
+}
+
+/**
+ * A run of months where one student pays a reduced share — placement,
+ * attachment, or a negotiated arrangement. Applied when invoices are generated,
+ * so the decision is made once and cannot be forgotten in month two.
+ *
+ * The reduction comes off the hostel's income. Roommates' shares are unaffected:
+ * the room rent still divides among the actual occupants exactly as before.
+ */
+model RentRelief {
+  id            String     @id @default(uuid())
+  studentId     String
+  kind          ReliefKind @default(PLACEMENT)
+  /// Inclusive month range. Stored as parts to match BillingPeriod.
+  startYear     Int
+  startMonth    Int
+  endYear       Int
+  endMonth      Int
+  /// Percent of the normal share the student still pays. 50 = pays half.
+  payPercent    Int
+  reason        String
+  approvedById  String?
+  createdAt     DateTime   @default(now())
+  cancelledAt   DateTime?
+  cancelledById String?
+
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  approvedBy User?   @relation("ReliefApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([studentId, startYear, startMonth])
+}
+
+model OtherCharge {
+  id          String     @id @default(uuid())
+  invoiceId   String
+  type        ChargeType @default(OTHER)
+  description String
+  amount      Int
+  createdById String?
+  createdAt   DateTime   @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  receiptNo       String?       @unique
+  studentId       String
+  /// What the student says they paid. Kept alongside the approved amount.
+  amountClaimed   Int?
+  /// The amount actually approved. This is the figure that moves money.
+  amount          Int
+  method          PaymentMethod
+  status          PaymentStatus @default(SUBMITTED)
+  /// Unique where present — one M-Pesa payment cannot be claimed twice.
+  transactionCode String?       @unique
+  payerPhone      String?
+  paidAt          DateTime      @db.Date
+  submittedAt     DateTime?
+  decidedAt       DateTime?
+  decidedById     String?
+  rejectionReason String?
+  recordedById    String?
+  note            String?
+  reversalOfId    String?       @unique
+  createdAt       DateTime      @default(now())
+
+  student     Student             @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  decidedBy   User?               @relation("PaymentDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  recordedBy  User?               @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  reversalOf  Payment?            @relation("Reversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversedBy  Payment?            @relation("Reversal")
+  allocations PaymentAllocation[]
+
+  @@index([status, paidAt])
+  @@index([studentId])
+}
+
+/// Created only at approval. A submitted payment never touches an invoice.
+model PaymentAllocation {
+  id        String   @id @default(uuid())
+  paymentId String
+  invoiceId String
+  amount    Int
+  createdAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([paymentId])
+}
+
+// ---------- rules ----------
+
+model HostelRules {
+  id          String   @id @default(uuid())
+  version     Int      @unique
+  title       String
+  content     String
+  publishedAt DateTime @default(now())
+  publishedBy String?
+  isCurrent   Boolean  @default(false)
+
+  acknowledgements RuleAcknowledgement[]
+}
+
+model RuleAcknowledgement {
+  id             String   @id @default(uuid())
+  studentId      String
+  rulesId        String
+  acknowledgedAt DateTime @default(now())
+  ipAddress      String?
+  userAgent      String?
+
+  student Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  rules   HostelRules @relation(fields: [rulesId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, rulesId])
+}
+
+// ---------- bookings & vacating ----------
+
+model Booking {
+  id             String        @id @default(uuid())
+  reference      String        @unique
+  fullName       String
+  phone          String
+  email          String?
+  gender         Gender
+  institution    String?
+  categoryId     String?
+  desiredMoveIn  DateTime?     @db.Date
+  message        String?
+  status         BookingStatus @default(PENDING)
+  assignedRoomId String?
+  approvedAt     DateTime?
+  holdExpiresAt  DateTime?
+  studentId      String?
+  decidedById    String?
+  createdAt      DateTime      @default(now())
+
+  category     RoomCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  assignedRoom Room?         @relation(fields: [assignedRoomId], references: [id], onDelete: SetNull)
+  student      Student?      @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+}
+
+model VacateRequest {
+  id               String       @id @default(uuid())
+  studentId        String
+  occupancyId      String
+  requestedDate    DateTime     @db.Date
+  reason           String?
+  /// Snapshot, so there is no argument later about what was outstanding.
+  balanceAtRequest Int
+  status           VacateStatus @default(PENDING)
+  adminNotes       String?
+  decidedById      String?
+  decidedAt        DateTime?
+  createdAt        DateTime     @default(now())
+
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  occupancy Occupancy @relation(fields: [occupancyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ---------- rentals ----------
+
+model RentalHouse {
+  id          String   @id @default(uuid())
+  houseNo     String   @unique
+  monthlyRent Int
+  isOccupied  Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  tenancies RentalTenancy[]
+  invoices  RentalInvoice[]
+  payments  RentalPayment[]
+}
+
+model RentalTenancy {
+  id                    String            @id @default(uuid())
+  houseId               String
+  tenantName            String
+  tenantPhone           String?
+  startDate             DateTime          @db.Date
+  endDate               DateTime?         @db.Date
+  rentAtStart           Int
+  depositRequired       Int               @default(0)
+  depositPaid           Int               @default(0)
+  depositPaidAt         DateTime?         @db.Date
+  depositRefundable     Boolean           @default(true)
+  depositSettlement     DepositSettlement @default(NOT_APPLICABLE)
+  depositSettlementNote String?
+  createdAt             DateTime          @default(now())
+
+  house    RentalHouse     @relation(fields: [houseId], references: [id], onDelete: Cascade)
+  invoices RentalInvoice[]
+
+  @@index([houseId, endDate])
+}
+
+model RentalInvoice {
+  id             String        @id @default(uuid())
+  houseId        String
+  tenancyId      String
+  periodId       String
+  rent           Int
+  openingBalance Int           @default(0)
+  totalPayable   Int
+  amountPaid     Int           @default(0)
+  closingBalance Int
+  dueDate        DateTime      @db.Date
+  graceEndsOn    DateTime      @db.Date
+  status         InvoiceStatus @default(UNPAID)
+
+  house   RentalHouse   @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  tenancy RentalTenancy @relation(fields: [tenancyId], references: [id], onDelete: Restrict)
+  period  BillingPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+
+  @@unique([tenancyId, periodId])
+}
+
+model RentalPayment {
+  id           String        @id @default(uuid())
+  houseId      String
+  amount       Int
+  method       PaymentMethod
+  paidAt       DateTime      @db.Date
+  reference    String?
+  note         String?
+  recordedById String?
+  createdAt    DateTime      @default(now())
+
+  house RentalHouse @relation(fields: [houseId], references: [id], onDelete: Restrict)
+
+  @@index([houseId, paidAt])
+}
+
+// ---------- settings & audit ----------
+
+/// Single row, id = "singleton".
+model Settings {
+  id                  String   @id @default("singleton")
+  hostelName          String   @default("Lepamus Residency")
+  tillNumber          String   @default("4806384")
+  tillBusinessName    String   @default("LEPAMUS RESIDENCY")
+  contactPhone        String?
+  contactEmail        String?
+  location            String?
+  rentDueDay          Int      @default(5)
+  graceDays           Int      @default(7)
+  bookingHoldDays     Int      @default(5)
+  cleaningDelayDays   Int      @default(1)
+  staleClaimDays      Int      @default(2)
+  smsEnabled          Boolean  @default(false)
+  emailEnabled        Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  before    Json?
+  after     Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
