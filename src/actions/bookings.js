@@ -169,9 +169,10 @@ export async function approveBooking(prevState, formData) {
     holdExpiresAt.setUTCDate(holdExpiresAt.getUTCDate() + holdDays);
 
     const existing = await prisma.student.findUnique({ where: { phone: booking.phone } });
-    const password = temporaryPassword();
+    
+    // Use a standard default password for all new approvals
+    const password = 'student123';
     const passwordHash = await bcrypt.hash(password, 10);
-
     const { student, returning } = await prisma.$transaction(async (tx) => {
       let record;
       let wasReturning = false;
@@ -378,5 +379,55 @@ export async function releaseExpiredHoldsAction(prevState) {
     );
   } catch (err) {
     return fail(err.message);
+  }
+}
+
+export async function sweepExpiredHoldsAction() {
+  try {
+    const now = new Date();
+
+    const expired = await prisma.booking.findMany({
+      where: {
+        status: { in: ["PENDING", "HOLD"] },
+        expiresAt: { lt: now },
+      },
+      select: { id: true, bedId: true },
+    });
+
+    if (expired.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    const bookingIds = expired.map((b) => b.id);
+    const bedIds = expired.map((b) => b.bedId).filter(Boolean);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.booking.updateMany({
+        where: { id: { in: bookingIds } },
+        data: { status: "EXPIRED" },
+      });
+
+      if (bedIds.length > 0) {
+        await tx.bed.updateMany({
+          where: { id: { in: bedIds } },
+          data: { isAvailable: true },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: "HOLD_SWEEPER_MANUAL",
+          details: `Manually swept ${expired.length} expired booking holds.`,
+        },
+      });
+    });
+
+    revalidatePath("/admin/bookings");
+    revalidatePath("/admin/rooms");
+    revalidatePath("/availability");
+    return { success: true, count: expired.length };
+  } catch (error) {
+    console.error("Failed to sweep holds:", error);
+    return { success: false, error: error.message };
   }
 }
