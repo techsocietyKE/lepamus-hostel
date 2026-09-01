@@ -5,10 +5,16 @@ import { prisma } from '@/lib/db';
 import { requireStaff, requireSuperAdmin } from '@/auth';
 import { writeAudit } from '@/lib/audit';
 import { categoryForCapacity, activeOccupantCount } from '@/lib/occupancy';
+import { createClient } from '@supabase/supabase-js';
 import { blockSchema, roomSchema, roomRangeSchema, categorySchema, fieldErrors } from '@/lib/validation';
 
 const ok = (message, extra = {}) => ({ ok: true, message, ...extra });
 const fail = (message, errors = {}) => ({ ok: false, message, errors });
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
 function refresh() {
   revalidatePath('/admin/rooms');
@@ -279,18 +285,70 @@ export async function setRoomStatus(prevState, formData) {
 export async function updateCategory(prevState, formData) {
   try {
     const user = await requireSuperAdmin();
-    const parsed = categorySchema.safeParse(Object.fromEntries(formData));
+    
+    const rawData = {
+      id: formData.get('id'),
+      description: formData.get('description'),
+      images: formData.getAll('images'), 
+      maxShownPublicly: formData.get('maxShownPublicly'),
+      isPublic: formData.get('isPublic'),
+    };
+
+    const parsed = categorySchema.safeParse(rawData);
     if (!parsed.success) return fail('Check the highlighted fields.', fieldErrors(parsed.error));
     const { id, ...data } = parsed.data;
 
     const before = await prisma.roomCategory.findUnique({ where: { id } });
     if (!before) return fail('That category no longer exists.');
 
-    const after = await prisma.roomCategory.update({ where: { id }, data });
+    let finalImageUrls = [];
+
+    // 1. Upload files to Supabase Storage if any were provided
+    if (data.images && data.images.length > 0) {
+      const uploadPromises = data.images.map(async (file) => {
+        const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+        
+        // Upload to the 'categories' bucket you created
+        const { error: uploadError } = await supabase
+          .storage
+          .from('categories')
+          .upload(filename, file);
+
+        if (uploadError) throw new Error(uploadError.message);
+
+        // Get the permanent public web address for the image
+        const { data: { publicUrl } } = supabase
+          .storage
+          .from('categories')
+          .getPublicUrl(filename);
+
+        return publicUrl;
+      });
+      
+      finalImageUrls = await Promise.all(uploadPromises);
+    }
+
+    const updateData = {
+      description: data.description,
+      maxShownPublicly: data.maxShownPublicly,
+      isPublic: data.isPublic,
+    };
+
+    if (finalImageUrls.length > 0) {
+      updateData.images = finalImageUrls;
+    }
+
+    // 2. Update the Postgres Database
+    const after = await prisma.roomCategory.update({ 
+      where: { id }, 
+      data: updateData 
+    });
+
     await writeAudit(prisma, {
       userId: user.id, action: 'CATEGORY_UPDATED', entity: 'RoomCategory',
       entityId: id, before, after,
     });
+    
     revalidatePath('/admin/categories');
     revalidatePath('/admin/rooms');
 
@@ -300,7 +358,8 @@ export async function updateCategory(prevState, formData) {
         : `${after.name} saved. It is hidden from the website.`,
     );
   } catch (err) {
-    return fail(err.message);
+    console.error('Upload error:', err);
+    return fail('Failed to upload images or update category.');
   }
 }
 

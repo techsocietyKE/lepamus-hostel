@@ -139,3 +139,38 @@ export async function signRules(prevState) {
     return fail(err.message);
   }
 }
+
+export async function changePasswordAction(prevState, formData) {
+  try {
+    // requireStudent() throws if they aren't logged in as a valid student
+    const student = await requireStudent(); 
+    
+    const newPassword = formData.get("newPassword");
+    const confirmPassword = formData.get("confirmPassword");
+
+    if (!newPassword || newPassword.length < 6) {
+      return { ok: false, message: "Password must be at least 6 characters long." };
+    }
+    if (newPassword !== confirmPassword) {
+      return { ok: false, message: "Passwords do not match." };
+    }
+
+    // Hash the new password
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Update student and flip the flag so they can access the portal
+    await prisma.student.update({
+      where: { id: student.id },
+      data: {
+        passwordHash,
+        mustChangePassword: false,
+      },
+    });
+
+    // Re-render the portal layout
+    revalidatePath("/portal"); 
+    return { ok: true, message: "Password updated successfully." };
+  } catch (error) {
+    return { ok: false, message: error.message };
+  }
+}

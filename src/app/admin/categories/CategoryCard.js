@@ -13,7 +13,7 @@ export default function CategoryCard({ category, readOnly }) {
   const rooms = category._count.rooms;
 
   return (
-    <form action={action} className="card h-fit space-y-4 p-5">
+    <form action={action}  className="card h-fit space-y-4 p-5">
       <div className="flex items-baseline justify-between gap-3 border-b border-rule pb-3">
         <div>
           <p className="eyebrow">{category.capacity} bed{category.capacity === 1 ? '' : 's'}</p>
@@ -48,18 +48,32 @@ export default function CategoryCard({ category, readOnly }) {
 
       <div>
         <label className="label" htmlFor={`images-${category.id}`}>Photographs</label>
-        <textarea
+        <input
           id={`images-${category.id}`}
           name="images"
-          rows={3}
-          className="field font-mono text-[13px]"
-          defaultValue={(category.images ?? []).join('\n')}
+          type="file"
+          multiple
+          accept="image/*"
+          className="field"
           disabled={readOnly}
-          placeholder={'/photos/3-sharing-1.jpg\n/photos/3-sharing-2.jpg'}
           aria-invalid={errors.images ? 'true' : undefined}
         />
+        
+        {category.images?.length > 0 && (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+            {category.images.map((img, i) => (
+              <img 
+                key={i} 
+                src={img} 
+                alt="Category preview" 
+                className="h-16 w-20 rounded-sm object-cover border border-rule" 
+              />
+            ))}
+          </div>
+        )}
+        
         {errors.images ? <p className="err">{errors.images}</p>
-          : <p className="hint">One path per line. Files kept in the site&rsquo;s public folder, or a full https:// address.</p>}
+          : <p className="hint">Select up to 12 images. New uploads will replace the current ones.</p>}
       </div>
 
       <div className="grid grid-cols-2 items-start gap-3">
@@ -79,7 +93,6 @@ export default function CategoryCard({ category, readOnly }) {
           {errors.maxShownPublicly ? <p className="err">{errors.maxShownPublicly}</p>
             : <p className="hint">Rooms listed on the availability page. The rest are counted, not listed.</p>}
         </div>
-
         <div>
           <span className="label">Website</span>
           <label className="flex items-center gap-2 py-2 text-sm">
@@ -101,7 +114,7 @@ export default function CategoryCard({ category, readOnly }) {
           Only the proprietor can change how a category is presented.
         </p>
       ) : (
-        <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving…">
+        <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving...">
           Save {category.name}
         </SubmitButton>
       )}

@@ -1,11 +1,6 @@
 import { z } from 'zod';
 import { toCents } from './money.js';
 
-/**
- * Kenyan numbers arrive as 0712..., +254712..., 254712..., 712...
- * They are stored one way — 254XXXXXXXXX — so a payment can be traced back to
- * the phone it came from, and so a student cannot end up with two accounts.
- */
 export function normalisePhone(input) {
   if (!input) return null;
   const digits = String(input).replace(/[^0-9]/g, '');
@@ -14,12 +9,12 @@ export function normalisePhone(input) {
   if (n.startsWith('254')) n = n.slice(3);
   else if (n.startsWith('0')) n = n.slice(1);
   if (n.length !== 9) return null;
-  if (!/^[17]/.test(n)) return null; // Safaricom/Airtel mobile prefixes
+  if (!/^[17]/.test(n)) return null; 
   return `254${n}`;
 }
 
 export function displayPhone(stored) {
-  if (!stored || stored.length !== 12) return stored ?? '—';
+  if (!stored || stored.length !== 12) return stored ?? '';
   return `0${stored.slice(3, 6)} ${stored.slice(6, 9)} ${stored.slice(9)}`;
 }
 
@@ -51,10 +46,6 @@ const money = z.string().trim().transform((v, ctx) => {
   return cents;
 });
 
-/**
- * Money that may legitimately be negative — an opening balance below zero is
- * credit, which is what a student who paid several months at once is owed.
- */
 const signedMoney = z.string().trim().optional().transform((v, ctx) => {
   if (v === undefined || v === '') return 0;
   const cents = toCents(v);
@@ -67,33 +58,23 @@ const signedMoney = z.string().trim().optional().transform((v, ctx) => {
 
 const optionalText = z.string().trim().max(2000).optional().transform((v) => v || null);
 
-/** An HTML checkbox posts "on" when ticked and nothing at all when it is not. */
 const checkbox = z.preprocess((v) => v === 'on' || v === 'true' || v === true, z.boolean());
 
-/**
- * Photographs are entered as paths, one per line — §7.4 holds them as optimised
- * files served by the app, so there is no upload screen to build yet.
- */
-const imagePaths = z.string().trim().optional().transform((v, ctx) => {
-  const lines = (v ?? '').split('\n').map((s) => s.trim()).filter(Boolean);
-  if (lines.length > 12) {
+// NEW: Handle File objects coming from FormData
+const imageFiles = z.array(z.any()).optional().transform((files, ctx) => {
+  if (!files || files.length === 0) return [];
+  // Filter out empty file objects (which happen when the input is untouched)
+  const validFiles = files.filter(f => f && typeof f === 'object' && f.size > 0);
+  
+  if (validFiles.length > 12) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Twelve photographs is plenty' });
     return z.NEVER;
   }
-  const bad = lines.find((l) => !l.startsWith('/') && !/^https?:\/\//.test(l));
-  if (bad) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `Start each line with / or https:// — "${bad}" does neither`,
-    });
-    return z.NEVER;
-  }
-  return lines;
+  return validFiles;
 });
 
 export const blockSchema = z.object({
-  name: z.string().trim().min(1, 'Give the block a name').max(30)
-    .transform((v) => v.toUpperCase()),
+  name: z.string().trim().min(1, 'Give the block a name').max(30).transform((v) => v.toUpperCase()),
   description: optionalText,
   sortOrder: z.coerce.number().int().min(0).max(999).default(0),
 });
@@ -103,8 +84,7 @@ export const roomSchema = z.object({
   code: z.string().trim().min(1, 'Give the room a number').max(20)
     .regex(/^[A-Za-z0-9\-/]+$/, 'Use letters and numbers, for example A1')
     .transform((v) => v.toUpperCase()),
-  capacity: z.coerce.number().int()
-    .min(1, 'A room needs at least one bed').max(12, 'That is a lot of beds — check the number'),
+  capacity: z.coerce.number().int().min(1, 'A room needs at least one bed').max(12, 'That is a lot of beds   check the number'),
   monthlyRent: money,
   gender: z.enum(['MALE', 'FEMALE', 'ANY']),
   description: optionalText,
@@ -112,8 +92,7 @@ export const roomSchema = z.object({
 
 export const roomRangeSchema = z.object({
   blockId: z.string().uuid('Choose a block'),
-  prefix: z.string().trim().min(1, 'Give the room numbers a prefix, for example A').max(10)
-    .transform((v) => v.toUpperCase()),
+  prefix: z.string().trim().min(1, 'Give the room numbers a prefix, for example A').max(10).transform((v) => v.toUpperCase()),
   from: z.coerce.number().int().min(0).max(999),
   to: z.coerce.number().int().min(0).max(999),
   capacity: z.coerce.number().int().min(1).max(12),
@@ -140,7 +119,6 @@ export const studentSchema = z.object({
   nextOfKinName: z.string().trim().max(120).optional().transform((v) => v || null),
   nextOfKinPhone: optionalPhone,
   admittedAt: z.string().trim().optional().transform((v) => v || null),
-  // Signed: a credit is a real position when a student has paid ahead.
   openingBalance: signedMoney,
 });
 
@@ -151,12 +129,6 @@ export const cashPaymentSchema = z.object({
   note: optionalText,
 });
 
-/**
- * M-Pesa returns ten alphanumeric characters, such as TGH4X8K2LM. Checking the
- * shape on entry catches most mistyping before it reaches the office, where the
- * code is the only thing distinguishing two students who paid the same amount
- * on the same day.
- */
 const transactionCode = z.string().trim().toUpperCase()
   .regex(/^[A-Z0-9]{10}$/, 'An M-Pesa code is 10 letters and numbers, like TGH4X8K2LM');
 
@@ -169,10 +141,6 @@ export const tillPaymentSchema = z.object({
   note: optionalText,
 });
 
-/**
- * A student telling the system they have paid. It is a claim, not money — the
- * fields are what the office needs to find it on the Till.
- */
 export const submitPaymentSchema = z.object({
   amount: money.refine((cents) => cents > 0, 'Enter the amount you paid'),
   transactionCode,
@@ -182,20 +150,14 @@ export const submitPaymentSchema = z.object({
 
 export const approveSchema = z.object({
   paymentId: z.string().uuid(),
-  // Adjust-on-approval: what actually arrived may differ from what was claimed.
   amount: money.refine((cents) => cents > 0, 'Enter an amount greater than zero'),
 });
 
 export const rejectSchema = z.object({
   paymentId: z.string().uuid(),
-  reason: z.string().trim().min(3, 'Give a reason — the student sees it').max(300),
+  reason: z.string().trim().min(3, 'Give a reason   the student sees it').max(300),
 });
 
-/**
- * Relief is expressed as what the student STILL PAYS, never as "half off".
- * The two readings differ by real money, so the ambiguity is removed here
- * rather than left in the interface.
- */
 export const reliefSchema = z.object({
   studentId: z.string().uuid(),
   kind: z.enum(['PLACEMENT', 'NEGOTIATED', 'HARDSHIP', 'OTHER']),
@@ -205,20 +167,15 @@ export const reliefSchema = z.object({
   endMonth: z.coerce.number().int().min(1).max(12),
   payPercent: z.coerce.number().int()
     .min(0, 'Between 0 and 100').max(100, 'A student cannot pay more than the full share'),
-  reason: z.string().trim().min(3, 'Say why — this is the record of the decision').max(300),
+  reason: z.string().trim().min(3, 'Say why   this is the record of the decision').max(300),
 }).refine(
   (v) => (v.endYear * 12 + v.endMonth) >= (v.startYear * 12 + v.startMonth),
   { message: 'The last month cannot be before the first', path: ['endMonth'] },
 ).refine(
   (v) => (v.endYear * 12 + v.endMonth) - (v.startYear * 12 + v.startMonth) < 24,
-  { message: 'That is more than two years — check the dates', path: ['endMonth'] },
+  { message: 'That is more than two years   check the dates', path: ['endMonth'] },
 );
 
-/**
- * A charge lands either on one student or on everyone currently in a room —
- * the second is what shared damage needs, and splitting it by hand across
- * three invoices is exactly the arithmetic this system exists to remove.
- */
 export const chargeSchema = z.object({
   periodId: z.string().uuid('Choose a month'),
   target: z.enum(['STUDENT', 'ROOM']),
@@ -235,18 +192,14 @@ export const chargeSchema = z.object({
 export const adjustInvoiceSchema = z.object({
   invoiceId: z.string().uuid(),
   discount: money,
-  reason: z.string().trim().min(3, 'Say why — it goes on the record').max(300),
+  reason: z.string().trim().min(3, 'Say why   it goes on the record').max(300),
 });
 
 export const rulesSchema = z.object({
   title: z.string().trim().min(3, 'Give the rules a title').max(160),
-  content: z.string().trim().min(50, 'The rules look too short — check the text').max(40000),
+  content: z.string().trim().min(50, 'The rules look too short   check the text').max(40000),
 });
 
-/**
- * A booking enquiry from a visitor. No account, no payment — the point is that
- * a prospective student can register interest before travelling.
- */
 export const bookingSchema = z.object({
   fullName: z.string().trim().min(2, 'Enter your name').max(120),
   phone,
@@ -284,14 +237,10 @@ export const allocateSchema = z.object({
   overrideReason: optionalText,
 });
 
-/**
- * A category is never created or deleted here — capacity decides which ones
- * exist. Only how it presents itself on the public site is editable.
- */
 export const categorySchema = z.object({
   id: z.string().uuid(),
   description: optionalText,
-  images: imagePaths,
+  images: imageFiles, // USING THE NEW VALIDATOR
   maxShownPublicly: z.coerce.number().int()
     .min(1, 'Show at least one').max(50, 'That would overwhelm the page'),
   isPublic: checkbox,
@@ -300,15 +249,12 @@ export const categorySchema = z.object({
 export const settingsSchema = z.object({
   hostelName: z.string().trim().min(1, 'The hostel needs a name').max(120),
   tillNumber: z.string().trim().regex(/^[0-9]{5,9}$/, 'A Till number is 5 to 9 digits'),
-  tillBusinessName: z.string().trim().min(1, 'Enter the name M-Pesa shows').max(120)
-    .transform((v) => v.toUpperCase()),
+  tillBusinessName: z.string().trim().min(1, 'Enter the name M-Pesa shows').max(120).transform((v) => v.toUpperCase()),
   contactPhone: optionalPhone,
   contactEmail: z.string().trim().email('Enter a valid email, or leave it blank')
     .optional().or(z.literal('')).transform((v) => v || null),
   location: optionalText,
-  // Capped at 28 so the due date exists in February as well.
-  rentDueDay: z.coerce.number().int()
-    .min(1, 'Pick a day from 1 to 28').max(28, 'Pick a day from 1 to 28'),
+  rentDueDay: z.coerce.number().int().min(1, 'Pick a day from 1 to 28').max(28, 'Pick a day from 1 to 28'),
   graceDays: z.coerce.number().int().min(0).max(31),
   bookingHoldDays: z.coerce.number().int().min(1, 'Hold a booking for at least a day').max(30),
   cleaningDelayDays: z.coerce.number().int().min(0).max(30),
@@ -322,7 +268,6 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Enter your password'),
 });
 
-/** Turn a Zod error into { field: message } for rendering next to inputs. */
 export function fieldErrors(error) {
   const out = {};
   for (const issue of error.issues) {
