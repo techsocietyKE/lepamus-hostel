@@ -304,15 +304,21 @@ export async function updateCategory(prevState, formData) {
     let finalImageUrls = [];
 
     // 1. Upload files to Supabase Storage if any were provided
+   // 1. Upload files to Supabase Storage if any were provided
     if (data.images && data.images.length > 0) {
       const uploadPromises = data.images.map(async (file) => {
         const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
         
+        // CONVERT THE FILE TO AN ARRAYBUFFER
+        const fileBody = await file.arrayBuffer();
+
         // Upload to the 'categories' bucket you created
         const { error: uploadError } = await supabase
           .storage
           .from('categories')
-          .upload(filename, file);
+          .upload(filename, fileBody, {
+            contentType: file.type, // Explicitly tell Supabase it's an image
+          });
 
         if (uploadError) throw new Error(uploadError.message);
 
