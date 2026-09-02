@@ -70,6 +70,25 @@ export default async function RoomDetail({ params }) {
             </div>
           </div>
 
+          {room.images?.length > 0 ? (
+            <div className="card overflow-hidden">
+              <div className="border-b border-rule px-4 py-3">
+                <h2 className="font-cond text-base font-semibold">Photographs</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+                {room.images.map((img, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={i}
+                    src={img}
+                    alt={`Room ${room.code} photo ${i + 1}`}
+                    className="aspect-[4/3] w-full rounded-sm object-cover border border-rule"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="card overflow-hidden">
             <div className="flex items-baseline justify-between border-b border-rule px-4 py-3">
               <h2 className="font-cond text-base font-semibold">Who is in this room</h2>
@@ -139,6 +158,7 @@ export default async function RoomDetail({ params }) {
             monthlyRent: room.monthlyRent,
             gender: room.gender,
             description: room.description ?? '',
+            images: room.images ?? [],
             status: room.status,
           }}
           blocks={blocks}

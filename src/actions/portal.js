@@ -2,12 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
 import { requireStudent } from '@/auth';
 import { writeAudit } from '@/lib/audit';
 import { fmt } from '@/lib/money';
 import { dateOnly, isoDate } from '@/lib/dates';
-import { submitPaymentSchema, fieldErrors } from '@/lib/validation';
+import { submitPaymentSchema, vacateRequestSchema, fieldErrors } from '@/lib/validation';
 
 const ok = (message, extra = {}) => ({ ok: true, message, ...extra });
 const fail = (message, errors = {}) => ({ ok: false, message, errors });
@@ -142,35 +143,109 @@ export async function signRules(prevState) {
 
 export async function changePasswordAction(prevState, formData) {
   try {
-    // requireStudent() throws if they aren't logged in as a valid student
-    const student = await requireStudent(); 
-    
-    const newPassword = formData.get("newPassword");
-    const confirmPassword = formData.get("confirmPassword");
+    const student = await requireStudent();
+    const newPassword = String(formData.get('newPassword') ?? '');
+    const confirmPassword = String(formData.get('confirmPassword') ?? '');
 
-    if (!newPassword || newPassword.length < 6) {
-      return { ok: false, message: "Password must be at least 6 characters long." };
+    if (newPassword.length < 6) {
+      return fail('The password needs at least 6 characters.', {
+        newPassword: 'At least 6 characters',
+      });
     }
     if (newPassword !== confirmPassword) {
-      return { ok: false, message: "Passwords do not match." };
+      return fail('The two passwords do not match.', {
+        confirmPassword: 'Does not match',
+      });
     }
 
-    // Hash the new password
     const passwordHash = await bcrypt.hash(newPassword, 10);
-
-    // Update student and flip the flag so they can access the portal
     await prisma.student.update({
       where: { id: student.id },
+      data: { passwordHash, mustChangePassword: false },
+    });
+
+    await writeAudit(prisma, {
+      action: 'STUDENT_PASSWORD_CHANGED', entity: 'Student', entityId: student.id,
+    });
+
+    revalidatePath('/portal');
+    revalidatePath('/portal/ForcePasswordChange');
+
+    return ok('Password changed. You can now use the portal.');
+  } catch (err) {
+    return fail(err.message);
+  }
+}
+
+/**
+ * A student's notice that they are leaving — §5.7. The request snapshots the
+ * balance at the moment they ask, so there is no argument later about what was
+ * outstanding. It does not close anything: that is the office's decision.
+ */
+export async function submitVacateRequest(prevState, formData) {
+  try {
+    const me = await requireStudent();
+    const parsed = vacateRequestSchema.safeParse(Object.fromEntries(formData));
+    if (!parsed.success) return fail('Check the highlighted fields.', fieldErrors(parsed.error));
+    const { requestedDate, reason } = parsed.data;
+
+    // There must be an active occupancy to vacate.
+    const occupancy = await prisma.occupancy.findFirst({
+      where: { studentId: me.id, status: 'ACTIVE' },
+      include: { room: { select: { code: true } } },
+    });
+    if (!occupancy) {
+      return fail('You are not in a room at the moment, so there is nothing to vacate.');
+    }
+
+    // One pending request at a time — a second is a duplicate, not a new enquiry.
+    const pending = await prisma.vacateRequest.findFirst({
+      where: { studentId: me.id, status: 'PENDING' },
+    });
+    if (pending) return fail('You already have a request being looked at.');
+
+    // Today in Nairobi, so a past date is refused rather than silently accepted.
+    const today = isoDate();
+    if (requestedDate < today) {
+      return fail('That date has already passed.', { requestedDate: 'Pick today or later' });
+    }
+
+    // Snapshot the balance. The latest invoice's closing balance is what they
+    // owe today; before any billing it is their opening balance.
+    const invoices = await prisma.invoice.findMany({
+      where: { studentId: me.id },
+      include: { period: { select: { year: true, month: true } } },
+      orderBy: [{ period: { year: 'asc' } }, { period: { month: 'asc' } }],
+    });
+    const latest = invoices[invoices.length - 1] ?? null;
+    const balance = latest ? latest.closingBalance : me.openingBalance;
+
+    const request = await prisma.vacateRequest.create({
       data: {
-        passwordHash,
-        mustChangePassword: false,
+        studentId: me.id,
+        occupancyId: occupancy.id,
+        requestedDate: dateOnly(requestedDate),
+        reason,
+        balanceAtRequest: balance,
       },
     });
 
-    // Re-render the portal layout
-    revalidatePath("/portal"); 
-    return { ok: true, message: "Password updated successfully." };
-  } catch (error) {
-    return { ok: false, message: error.message };
+    await writeAudit(prisma, {
+      action: 'VACATE_REQUESTED', entity: 'VacateRequest', entityId: request.id,
+      after: {
+        studentId: me.id, requestedDate, reason,
+        balanceAtRequest: balance, roomCode: occupancy.room.code,
+      },
+    });
+
+    revalidatePath('/portal/vacate');
+    revalidatePath('/admin/vacate');
+    revalidatePath('/admin');
+
+    return ok(
+      `Your request to leave ${occupancy.room.code} on ${requestedDate} has been sent. The office will confirm it with you.`,
+    );
+  } catch (err) {
+    return fail(err.message);
   }
 }

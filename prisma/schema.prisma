@@ -446,6 +446,8 @@ model Booking {
   categoryId     String?
   desiredMoveIn  DateTime?     @db.Date
   message        String?
+  /// The specific room the visitor was looking at when they enquired, if any.
+  requestedRoomCode String?
   status         BookingStatus @default(PENDING)
   assignedRoomId String?
   approvedAt     DateTime?

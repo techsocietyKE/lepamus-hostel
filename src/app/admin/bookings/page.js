@@ -102,6 +102,7 @@ export default async function BookingsPage() {
               desiredMoveIn: b.desiredMoveIn ? formatDate(b.desiredMoveIn) : null,
               message: b.message,
               status: b.status,
+              requestedRoom: b.requestedRoomCode ?? null,
               waitingSince: formatDate(b.createdAt),
               ageDays: Math.floor((Date.now() - b.createdAt.getTime()) / 86400000),
             }))}

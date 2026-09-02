@@ -95,6 +95,7 @@ export async function submitBooking(prevState, formData) {
           categoryId: d.categoryId,
           desiredMoveIn: d.desiredMoveIn ? dateOnly(d.desiredMoveIn) : null,
           message: d.message,
+          requestedRoomCode: d.requestedRoomCode,
         },
       });
     }

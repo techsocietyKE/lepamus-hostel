@@ -142,9 +142,19 @@ export default async function RoomsPage({ searchParams }) {
                       />
                     </td>
                     <td>
-                      <Link href={`/admin/rooms/${room.id}`} className="num font-medium text-enamel hover:underline">
-                        {room.code}
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {room.images?.[0] ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={room.images[0]}
+                            alt={`Room ${room.code}`}
+                            className="h-8 w-10 rounded-sm object-cover border border-rule"
+                          />
+                        ) : null}
+                        <Link href={`/admin/rooms/${room.id}`} className="num font-medium text-enamel hover:underline">
+                          {room.code}
+                        </Link>
+                      </div>
                     </td>
                     <td className="num text-ink-soft">{room.block.name}</td>
                     <td className="text-ink-soft">{GENDER_LABEL[room.gender]}</td>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { auth, signOut } from '@/auth';
 import { prisma } from '@/lib/db';
 
@@ -10,13 +11,29 @@ const nav = [
   { href: '/portal/pay', label: 'Pay' },
   { href: '/portal/statement', label: 'Statement' },
   { href: '/portal/rules', label: 'Rules' },
+  { href: '/portal/vacate', label: 'Vacate' },
 ];
 
 export default async function PortalLayout({ children }) {
   const session = await auth();
   if (session?.user?.role !== 'STUDENT') redirect('/login');
 
-  const settings = await prisma.settings.findUnique({ where: { id: 'singleton' } });
+  const [settings, student] = await Promise.all([
+    prisma.settings.findUnique({ where: { id: 'singleton' } }),
+    prisma.student.findUnique({
+      where: { id: session.user.id },
+      select: { mustChangePassword: true },
+    }),
+  ]);
+
+  // A password issued by the office must be changed before the portal is used.
+  // The change page is the single exception, so this cannot loop on itself.
+  const h = await headers();
+  const pathname = h.get('x-pathname') ?? h.get('x-invoke-path') ?? '';
+  const onForceChange = pathname.startsWith('/portal/ForcePasswordChange');
+  if (student?.mustChangePassword && pathname && !onForceChange) {
+    redirect('/portal/ForcePasswordChange');
+  }
 
   async function signOutAction() {
     'use server';

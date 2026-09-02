@@ -88,6 +88,7 @@ export const roomSchema = z.object({
   monthlyRent: money,
   gender: z.enum(['MALE', 'FEMALE', 'ANY']),
   description: optionalText,
+  images: imageFiles,
 });
 
 export const roomRangeSchema = z.object({
@@ -210,6 +211,7 @@ export const bookingSchema = z.object({
   categoryId: z.string().uuid().optional().or(z.literal('')).transform((v) => v || null),
   desiredMoveIn: z.string().trim().optional().transform((v) => v || null),
   message: z.string().trim().max(1000).optional().transform((v) => v || null),
+  requestedRoomCode: z.string().trim().max(20).optional().transform((v) => v || null),
 });
 
 export const approveBookingSchema = z.object({
@@ -261,6 +263,17 @@ export const settingsSchema = z.object({
   staleClaimDays: z.coerce.number().int().min(1, 'At least a day').max(30),
   smsEnabled: checkbox,
   emailEnabled: checkbox,
+});
+
+export const vacateRequestSchema = z.object({
+  requestedDate: z.string().trim().min(1, 'Choose when you want to move out'),
+  reason: z.string().trim().min(3, 'Say why you are leaving').max(300),
+});
+
+export const decideVacateSchema = z.object({
+  vacateId: z.string().uuid(),
+  decision: z.enum(['APPROVED', 'REJECTED']),
+  adminNotes: z.string().trim().max(500).optional().transform((v) => v || null),
 });
 
 export const loginSchema = z.object({

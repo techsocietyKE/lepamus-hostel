@@ -91,6 +91,12 @@ function BookingCard({ booking, rooms, today }) {
           <dt className="eyebrow">Gender</dt>
           <dd>{GENDER_LABEL[booking.gender] ?? booking.gender}</dd>
         </div>
+        {booking.requestedRoom ? (
+          <div>
+            <dt className="eyebrow">Room they want</dt>
+            <dd className="num font-medium text-enamel">{booking.requestedRoom}</dd>
+          </div>
+        ) : null}
         {booking.email ? (
           <div>
             <dt className="eyebrow">Email</dt>

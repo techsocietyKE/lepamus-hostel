@@ -182,6 +182,21 @@ export default function RoomForms({ blocks }) {
             />
           </div>
 
+          <div>
+            <label className="label" htmlFor="images">Room photograph</label>
+            <input
+              id="images"
+              name="images"
+              type="file"
+              multiple
+              accept="image/*"
+              className="field"
+              aria-invalid={errors.images ? 'true' : undefined}
+            />
+            {errors.images ? <p className="err">{errors.images}</p>
+              : <p className="hint">A photo of this actual room, not the type. Up to 12.</p>}
+          </div>
+
           <SubmitButton className="btn btn-primary w-full" pendingLabel="Adding…">
             Add room
           </SubmitButton>

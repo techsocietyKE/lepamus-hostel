@@ -8,7 +8,7 @@ import Notice from '@/components/Notice';
 
 const initial = { ok: null, message: null, errors: {} };
 
-export default function BookingForm({ categories, preselected, holdDays }) {
+export default function BookingForm({ categories, preselected, preselectedRoom, holdDays }) {
   const [state, action] = useActionState(submitBooking, initial);
   const errors = state.errors ?? {};
 
@@ -37,6 +37,15 @@ export default function BookingForm({ categories, preselected, holdDays }) {
     <form action={action} className="card mt-6 space-y-4 p-5">
       {state.message ? (
         <Notice tone={state.ok ? 'done' : 'error'}>{state.message}</Notice>
+      ) : null}
+
+      <input type="hidden" name="requestedRoomCode" value={preselectedRoom} />
+
+      {preselectedRoom ? (
+        <div className="rounded-sm border border-enamel/30 bg-enamel-tint px-3 py-2 text-sm text-enamel-dark">
+          You are enquiring about room{' '}
+          <span className="num font-medium">{preselectedRoom}</span>.
+        </div>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">

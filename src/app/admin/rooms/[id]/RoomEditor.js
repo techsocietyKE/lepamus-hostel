@@ -128,6 +128,34 @@ export default function RoomEditor({ room, blocks, occupied, isSuperAdmin }) {
           />
         </div>
 
+        <div>
+          <label className="label" htmlFor="images">Photographs</label>
+          <input
+            id="images"
+            name="images"
+            type="file"
+            multiple
+            accept="image/*"
+            className="field"
+            aria-invalid={errors.images ? 'true' : undefined}
+          />
+          {room.images?.length > 0 ? (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+              {room.images.map((img, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={img}
+                  alt={`Room ${room.code} photo ${i + 1}`}
+                  className="h-16 w-20 rounded-sm object-cover border border-rule"
+                />
+              ))}
+            </div>
+          ) : null}
+          {errors.images ? <p className="err">{errors.images}</p>
+            : <p className="hint">A photo of this actual room. New uploads replace the current ones.</p>}
+        </div>
+
         <SubmitButton className="btn btn-primary w-full" pendingLabel="Saving…">
           Save changes
         </SubmitButton>

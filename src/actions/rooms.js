@@ -22,6 +22,27 @@ function refresh() {
   revalidatePath('/admin');
 }
 
+/**
+ * Upload room photos to Supabase Storage. They reuse the categories bucket but
+ * are stored under a rooms/ folder, so they never collide with category shots.
+ */
+async function uploadRoomImages(files) {
+  return Promise.all(files.map(async (file) => {
+    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+    const fileBody = await file.arrayBuffer();
+    const { error: uploadError } = await supabase
+      .storage
+      .from('categories')
+      .upload(`rooms/${filename}`, fileBody, { contentType: file.type });
+    if (uploadError) throw new Error(uploadError.message);
+    const { data: { publicUrl } } = supabase
+      .storage
+      .from('categories')
+      .getPublicUrl(`rooms/${filename}`);
+    return publicUrl;
+  }));
+}
+
 // ---------- blocks ----------
 
 export async function createBlock(prevState, formData) {
@@ -94,12 +115,20 @@ export async function deleteBlock(prevState, formData) {
 export async function createRoom(prevState, formData) {
   try {
     const user = await requireStaff();
-    const parsed = roomSchema.safeParse(Object.fromEntries(formData));
+    const parsed = roomSchema.safeParse({
+      ...Object.fromEntries(formData),
+      images: formData.getAll('images'),
+    });
     if (!parsed.success) return fail('Check the highlighted fields.', fieldErrors(parsed.error));
     const data = parsed.data;
 
     const clash = await prisma.room.findUnique({ where: { code: data.code } });
     if (clash) return fail(`Room ${data.code} already exists.`, { code: 'Already in use' });
+
+    let imageUrls = [];
+    if (data.images && data.images.length > 0) {
+      imageUrls = await uploadRoomImages(data.images);
+    }
 
     const category = await categoryForCapacity(data.capacity);
     const room = await prisma.room.create({
@@ -111,6 +140,7 @@ export async function createRoom(prevState, formData) {
         monthlyRent: data.monthlyRent,
         gender: data.gender,
         description: data.description,
+        images: imageUrls,
         createdById: user.id,
       },
     });
@@ -186,7 +216,10 @@ export async function updateRoom(prevState, formData) {
   try {
     const user = await requireStaff();
     const id = String(formData.get('id') ?? '');
-    const parsed = roomSchema.safeParse(Object.fromEntries(formData));
+    const parsed = roomSchema.safeParse({
+      ...Object.fromEntries(formData),
+      images: formData.getAll('images'),
+    });
     if (!parsed.success) return fail('Check the highlighted fields.', fieldErrors(parsed.error));
     const data = parsed.data;
 
@@ -211,6 +244,11 @@ export async function updateRoom(prevState, formData) {
       );
     }
 
+    let imageUrls = [];
+    if (data.images && data.images.length > 0) {
+      imageUrls = await uploadRoomImages(data.images);
+    }
+
     const category = await categoryForCapacity(data.capacity);
     const after = await prisma.room.update({
       where: { id },
@@ -222,6 +260,7 @@ export async function updateRoom(prevState, formData) {
         monthlyRent: data.monthlyRent,
         gender: data.gender,
         description: data.description,
+        ...(imageUrls.length > 0 ? { images: imageUrls } : {}),
       },
     });
 

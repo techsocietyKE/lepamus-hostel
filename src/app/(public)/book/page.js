@@ -32,6 +32,7 @@ export default async function BookPage({ searchParams }) {
       <BookingForm
         categories={categories}
         preselected={typeof params?.category === 'string' ? params.category : ''}
+        preselectedRoom={typeof params?.room === 'string' ? params.room : ''}
         holdDays={settings?.bookingHoldDays ?? 5}
       />
     </>
