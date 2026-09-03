@@ -6,7 +6,6 @@ import SubmitButton from '@/components/SubmitButton';
 import Notice from '@/components/Notice';
 
 const initial = { ok: null, message: null, errors: {} };
-
 const GENDER_LABEL = { MALE: 'Male', FEMALE: 'Female' };
 
 export default function BookingQueue({ bookings, rooms, today }) {
@@ -24,9 +23,18 @@ function BookingCard({ booking, rooms, today }) {
   const [decideState, decideAction] = useActionState(decideBooking, initial);
   const [closing, setClosing] = useState(false);
 
-  // Rooms this person could actually go in — a men's room is never offered for
+  // Rooms this person could actually go in - a men's room is never offered for
   // a woman, so the refusal cannot happen after the decision has been made.
   const usable = rooms.filter((r) => r.gender === 'ANY' || r.gender === booking.gender);
+
+  // Check for the requested room code from the booking form
+  const requestedCode = booking.requestedRoomCode || booking.requestedRoom;
+
+  // Find the ID of the requested room from the available rooms
+  const requestedRoomObj = requestedCode
+    ? usable.find((r) => r.code === requestedCode || (r.label && r.label.includes(requestedCode)))
+    : null;
+  const defaultRoomId = requestedRoomObj ? requestedRoomObj.id : "";
 
   if (approveState.ok && approveState.credentials) {
     const c = approveState.credentials;
@@ -35,7 +43,6 @@ function BookingCard({ booking, rooms, today }) {
         <p className="eyebrow">Approved</p>
         <h3 className="font-cond text-lg font-semibold">{c.name} is in room {c.roomCode}</h3>
         <p className="mt-2 text-sm">{approveState.message}</p>
-
         <div className="mt-4 rounded-sm border border-rule bg-wall p-4">
           <p className="eyebrow">Give them these once</p>
           <dl className="mt-1.5 space-y-1 text-sm">
@@ -50,7 +57,7 @@ function BookingCard({ booking, rooms, today }) {
           </dl>
           <p className="hint mt-2">
             They are asked to change it at their first sign-in. This password is
-            not stored anywhere readable, so it cannot be shown again — write it
+            not stored anywhere readable, so it cannot be shown again - write it
             down or send it now.
           </p>
         </div>
@@ -64,7 +71,7 @@ function BookingCard({ booking, rooms, today }) {
         <div>
           <p className="eyebrow">
             {booking.reference}
-            {booking.status === 'WAITLISTED' ? ' · waiting list' : ''}
+            {booking.status === 'WAITLISTED' ? ' - waiting list' : ''}
           </p>
           <h3 className="font-cond text-lg font-semibold">{booking.fullName}</h3>
         </div>
@@ -91,12 +98,15 @@ function BookingCard({ booking, rooms, today }) {
           <dt className="eyebrow">Gender</dt>
           <dd>{GENDER_LABEL[booking.gender] ?? booking.gender}</dd>
         </div>
-        {booking.requestedRoom ? (
+        
+        {/* Displays the room the student chose */}
+        {requestedCode ? (
           <div>
             <dt className="eyebrow">Room they want</dt>
-            <dd className="num font-medium text-enamel">{booking.requestedRoom}</dd>
+            <dd className="num font-medium text-enamel">{requestedCode}</dd>
           </div>
         ) : null}
+
         {booking.email ? (
           <div>
             <dt className="eyebrow">Email</dt>
@@ -126,6 +136,7 @@ function BookingCard({ booking, rooms, today }) {
       {approveState.message && !approveState.ok ? (
         <div className="mt-3"><Notice tone="error">{approveState.message}</Notice></div>
       ) : null}
+
       {decideState.message ? (
         <div className="mt-3">
           <Notice tone={decideState.ok ? 'done' : 'error'}>{decideState.message}</Notice>
@@ -142,10 +153,20 @@ function BookingCard({ booking, rooms, today }) {
           <input type="hidden" name="bookingId" value={booking.id} />
           <div className="min-w-44">
             <label className="label" htmlFor={`room-${booking.id}`}>Give them</label>
-            <select id={`room-${booking.id}`} name="roomId" className="field" required defaultValue="">
+            
+            {/* The dropdown will automatically select the requested room */}
+            <select 
+              id={`room-${booking.id}`} 
+              name="roomId" 
+              className="field" 
+              required 
+              defaultValue={defaultRoomId}
+            >
               <option value="" disabled>Choose a room</option>
               {usable.map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
+                <option key={r.id} value={r.id}>
+                  {r.label} {requestedCode && (r.code === requestedCode || r.label.includes(requestedCode)) ? '(Requested)' : ''}
+                </option>
               ))}
             </select>
           </div>
@@ -160,7 +181,7 @@ function BookingCard({ booking, rooms, today }) {
               required
             />
           </div>
-          <SubmitButton className="btn btn-primary" pendingLabel="Approving…">
+          <SubmitButton className="btn btn-primary" pendingLabel="Approving...">
             Approve and allocate
           </SubmitButton>
         </form>

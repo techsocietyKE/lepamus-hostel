@@ -12,6 +12,7 @@ const nav = [
   { href: '/portal/statement', label: 'Statement' },
   { href: '/portal/rules', label: 'Rules' },
   { href: '/portal/vacate', label: 'Vacate' },
+  { href: '/portal/password', label: 'Password' },
 ];
 
 export default async function PortalLayout({ children }) {

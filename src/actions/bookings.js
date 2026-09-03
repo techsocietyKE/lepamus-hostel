@@ -92,7 +92,10 @@ export async function submitBooking(prevState, formData) {
           email: d.email,
           gender: d.gender,
           institution: d.institution,
-          categoryId: d.categoryId,
+          
+          // Fixed: using 'd' instead of 'data'
+          category: d.categoryId ? { connect: { id: d.categoryId } } : undefined,
+          
           desiredMoveIn: d.desiredMoveIn ? dateOnly(d.desiredMoveIn) : null,
           message: d.message,
           requestedRoomCode: d.requestedRoomCode,

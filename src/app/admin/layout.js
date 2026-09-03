@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth, signOut } from '@/auth';
-import { LayoutGrid, DoorClosed, Users, Layers, Images, Sliders, BookOpen, Banknote, ScrollText, History, Inbox, UserMinus, LogOut } from 'lucide-react';
+import { LayoutGrid, DoorClosed, Users, Layers, Images, Sliders, BookOpen, Banknote, ScrollText, History, Inbox, UserMinus, LogOut, Megaphone } from 'lucide-react';
 
 const nav = [
   { href: '/admin', label: 'Overview', icon: LayoutGrid },
@@ -13,9 +13,11 @@ const nav = [
   { href: '/admin/students', label: 'Students', icon: Users },
   { href: '/admin/bookings', label: 'Bookings', icon: Inbox },
   { href: '/admin/vacate', label: 'Vacate requests', icon: UserMinus },
+  { href: '/admin/announcements', label: 'Announcements', icon: Megaphone },
   { href: '/admin/rules', label: 'Rules', icon: ScrollText, superAdminOnly: true },
   { href: '/admin/settings', label: 'Settings', icon: Sliders, superAdminOnly: true },
   { href: '/admin/audit', label: 'Audit log', icon: History, superAdminOnly: true },
+  
 ];
 
 export default async function AdminLayout({ children }) {
