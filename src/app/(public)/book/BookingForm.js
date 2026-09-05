@@ -79,7 +79,7 @@ export default function BookingForm({ categories, preselected, preselectedRoom, 
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label" htmlFor="email">Email (optional)</label>
+          <label className="label" htmlFor="email">Email </label>
           <input
             id="email"
             name="email"

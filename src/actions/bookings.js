@@ -9,6 +9,7 @@ import { dateOnly, isoDate } from '@/lib/dates';
 import {
   bookingSchema, approveBookingSchema, decideBookingSchema, displayPhone, fieldErrors,
 } from '@/lib/validation';
+import { sendCredentialsEmail } from '@/lib/mail';
 
 const ok = (message, extra = {}) => ({ ok: true, message, ...extra });
 const fail = (message, errors = {}) => ({ ok: false, message, errors });
@@ -120,14 +121,14 @@ export async function submitBooking(prevState, formData) {
  * A first password the student changes at their first sign-in. Deliberately
  * readable down a phone: no characters that argue with each other when spoken.
  */
-function temporaryPassword() {
-  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < 8; i += 1) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return out;
-}
+// function temporaryPassword() {
+//   const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+//   let out = '';
+//   for (let i = 0; i < 8; i += 1) {
+//     out += alphabet[Math.floor(Math.random() * alphabet.length)];
+//   }
+//   return out;
+// }
 
 /**
  * Approving an enquiry — §5.10. This is the moment a visitor becomes a
@@ -206,7 +207,9 @@ export async function approveBooking(prevState, formData) {
             passwordHash,
             mustChangePassword: true,
           },
-        });
+          
+        }
+      );
       }
 
       await tx.occupancy.create({
@@ -287,7 +290,12 @@ export async function decideBooking(prevState, formData) {
       entityId: bookingId, after: { reference: booking.reference, note },
     });
     refreshAdmin();
-
+      await sendCredentialsEmail(
+      booking.email, 
+      student.fullName, 
+      student.phone, 
+      password
+    );
     return ok(
       status === 'WAITLISTED'
         ? `${updated.fullName} is on the waiting list. They stay in the queue for when a bed frees up.`

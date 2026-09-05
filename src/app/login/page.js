@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -32,41 +34,40 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-zinc-50 dark:bg-zinc-950">
-      <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-6 shadow-sm">
-        
+    <div className="min-h-screen flex items-center justify-center p-4 bg-wall">
+      <div className="w-full max-w-md card p-6">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            Hostel Portal Login
-          </h1>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
+          <h1 className="font-cond text-2xl font-semibold text-ink">Hostel Portal Login</h1>
+          <p className="mt-1 text-sm text-ink-soft">
             Access your student statement or staff dashboard
           </p>
         </div>
 
-        {/* First-Time Student Helper Card */}
-        <div className="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50">
-          <h3 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-1.5 flex items-center gap-1.5">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            First time logging in?
-          </h3>
-          <div className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-            <p><strong>Username:</strong> The Phone Number or Email you used to book.</p>
-            <p><strong>Password:</strong> <code className="bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded font-mono font-bold">student123</code></p>
+        {/* First-Time Student Helper */}
+        <div className="mb-6 p-4 rounded-sm bg-wall border border-rule">
+          <h3 className="text-sm font-semibold text-ink mb-1.5">First time logging in?</h3>
+          <div className="text-xs text-ink-soft space-y-1">
+            <p>
+              <span className="font-medium text-ink">Username:</span> the phone number or email you used to book.
+            </p>
+            <p>
+              <span className="font-medium text-ink">Password:</span>{" "}
+              <code className="bg-paper border border-rule px-1.5 py-0.5 rounded-sm font-mono text-ink">
+                student123
+              </code>
+            </p>
           </div>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 text-xs rounded-md bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900">
+          <div className="mb-4 p-3 text-xs rounded-sm bg-wall border border-rule text-ink">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-ink-soft mb-1">
               Phone Number or Email
             </label>
             <input
@@ -75,33 +76,42 @@ export default function LoginPage() {
               placeholder="e.g. 0712345678"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              className="w-full px-3 py-2 text-sm rounded-sm border border-rule bg-paper text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-enamel"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            <label className="block text-xs font-medium text-ink-soft mb-1">
               Password
             </label>
-            <input
-              type="password"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 text-sm border rounded-md border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 pr-10 text-sm rounded-sm border border-rule bg-paper text-ink placeholder:text-ink-faint focus:outline-none focus:ring-1 focus:ring-enamel"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint hover:text-ink transition-colors"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-md transition-colors disabled:opacity-50"
+            className="btn btn-primary w-full disabled:opacity-50"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
-
       </div>
     </div>
   );
